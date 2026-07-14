@@ -30,7 +30,8 @@ class HelloFrame(wx.Frame):
 
         r_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
 
-        l_panel.SetBackgroundColour("LIGHTGREY")
+        l_panel_top.SetBackgroundColour("LIGHT GREY")
+        l_panel_bottom.SetBackgroundColour("GREY")
         r_panel.SetBackgroundColour("WHITE")
 
         self.file_drop = DropTarget(l_panel_top)
@@ -39,6 +40,7 @@ class HelloFrame(wx.Frame):
 
         drop_text = wx.StaticText(l_panel_top, label="Drop Files Here")
         style = drop_text.GetFont()
+        drop_text.SetForegroundColour(wx.BLACK)
         style.PointSize += 8
         drop_text.SetFont(style)
 
