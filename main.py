@@ -1,21 +1,23 @@
 import wx
 
+#Each file should be made into some sort of clickable item that has information on the file directory for reference
+#This can be used to edit the file on bulk or as singular file
+#And can be used to export the data into music databases as a tracklist.
+
 class DropTarget(wx.FileDropTarget):
-    def __init__(self, obj):
+    def __init__(self, obj, file_text):
         wx.FileDropTarget.__init__(self)
         self.obj = obj
+        self.file_text: wx.StaticText = file_text
 
     def OnDropFiles(self, x, y, filenames):
         for filename in filenames:
-            print("Drop Event", filename)
+            name = filename[filename.rfind("/")+1:filename.rfind(".")]
+            self.file_text.SetLabel(f"{self.file_text.GetLabel()}\n{name}")
 
         return True
 
 class HelloFrame(wx.Frame):
-    """
-    A Frame that says Hello World
-    """
-
     def __init__(self, *args, **kw):
         # ensure the parent's __init__ is called
         super(HelloFrame, self).__init__(*args, **kw)
@@ -34,9 +36,6 @@ class HelloFrame(wx.Frame):
         l_panel_bottom.SetBackgroundColour("GREY")
         r_panel.SetBackgroundColour("WHITE")
 
-        self.file_drop = DropTarget(l_panel_top)
-        l_panel_top.SetDropTarget(self.file_drop)
-
 
         drop_text = wx.StaticText(l_panel_top, label="Drop Files Here")
         style = drop_text.GetFont()
@@ -44,11 +43,20 @@ class HelloFrame(wx.Frame):
         style.PointSize += 8
         drop_text.SetFont(style)
 
+        file_text = wx.StaticText(l_panel_bottom)
+        file_text_style = file_text.GetFont()
+        file_text.SetForegroundColour(wx.BLACK)
+        file_text_style.PointSize += 2
+        file_text.SetFont(file_text_style)
+
         text_sizer = wx.BoxSizer(wx.VERTICAL)
         text_sizer.AddStretchSpacer(1)
         text_sizer.Add(drop_text, 1, wx.ALIGN_CENTER_HORIZONTAL)
         text_sizer.AddStretchSpacer(1)
         l_panel_top.SetSizer(text_sizer)
+
+        self.file_drop = DropTarget(l_panel_top, file_text)
+        l_panel_top.SetDropTarget(self.file_drop)
 
         # put some text with a larger bold font on it
         # st = wx.StaticText(pnl, label="Hello World!")
