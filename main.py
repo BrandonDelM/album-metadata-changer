@@ -1,20 +1,52 @@
+import os
 import wx
+import math
+import wx.grid as gridlib
+from tinytag import TinyTag
 
 #Each file should be made into some sort of clickable item that has information on the file directory for reference
 #This can be used to edit the file on bulk or as singular file
 #And can be used to export the data into music databases as a tracklist.
 
 class DropTarget(wx.FileDropTarget):
-    def __init__(self, obj, file_text):
+    def __init__(self, obj, file_text, track_grid):
         wx.FileDropTarget.__init__(self)
         self.obj = obj
         self.file_text: wx.StaticText = file_text
+        self.track_grid: gridlib.Grid = track_grid
 
     def OnDropFiles(self, x, y, filenames):
-        for filename in filenames:
-            name = filename[filename.rfind("/")+1:filename.rfind(".")]
-            self.file_text.SetLabel(f"{self.file_text.GetLabel()}\n{name}")
+        if self.track_grid.GetNumberRows() > 0:
+            self.track_grid.DeleteRows(0, self.track_grid.GetNumberRows())
+        for path in filenames:
+            if os.path.isdir(path):
+                contents = os.listdir(path)
+                self.track_grid.InsertRows(pos=0, numRows=len(contents))
+                row_i: int = 0 #Files in the folder aren't always going to be audio files...
+                for item in contents:
+                    if TinyTag.is_supported(os.path.join(path, item)): #If the file is a genuine audio file which can be parsed
+                        tag: TinyTag = TinyTag.get(os.path.join(path, item))
+                        artist_name = tag.artist or ""
+                        track_title = tag.title or ""
+                        duration = math.ceil(tag.duration)
+                        duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
 
+                        print(artist_name, track_title, duration)
+
+                        self.track_grid.SetCellValue(row_i, 0, str(row_i+1))
+                        self.track_grid.SetCellValue(row_i, 1, str(artist_name))
+                        self.track_grid.SetCellValue(row_i, 2, str(track_title))
+                        self.track_grid.SetCellValue(row_i, 3, str(duration))
+
+                        row_i += 1 
+                
+                if row_i < len(contents):
+                    self.track_grid.DeleteRows(row_i, len(contents) - row_i)
+            else:
+                name = path[path.rfind("/")+1:path.rfind(".")]
+                self.file_text.SetLabel(f"{self.file_text.GetLabel()}\n{name}")
+        self.track_grid.ForceRefresh()
+        self.track_grid.AutoSize()
         return True
 
 class HelloFrame(wx.Frame):
@@ -36,6 +68,16 @@ class HelloFrame(wx.Frame):
         l_panel_bottom.SetBackgroundColour("GREY")
         r_panel.SetBackgroundColour("WHITE")
 
+        #Right form
+        trackGrid = gridlib.Grid(r_panel)
+        trackGrid.CreateGrid(numRows=0, numCols=4)
+        trackGrid.SetDefaultCellAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
+        trackGrid.SetColLabelValue(0, "#")
+        trackGrid.SetColLabelValue(1, "Artist")
+        trackGrid.SetColLabelValue(2, "Track Title")
+        trackGrid.SetColLabelValue(3, "Duration")
+        trackGrid.AutoSize()
+        trackGrid.InsertRows()
 
         drop_text = wx.StaticText(l_panel_top, label="Drop Files Here")
         style = drop_text.GetFont()
@@ -55,7 +97,7 @@ class HelloFrame(wx.Frame):
         text_sizer.AddStretchSpacer(1)
         l_panel_top.SetSizer(text_sizer)
 
-        self.file_drop = DropTarget(l_panel_top, file_text)
+        self.file_drop = DropTarget(l_panel_top, file_text, trackGrid)
         l_panel_top.SetDropTarget(self.file_drop)
 
         # put some text with a larger bold font on it
@@ -69,6 +111,10 @@ class HelloFrame(wx.Frame):
         l_sizer.Add(l_panel_top, 1, wx.EXPAND)
         l_sizer.Add(l_panel_bottom, 3, wx.EXPAND)
         l_panel.SetSizer(l_sizer)
+
+        r_sizer = wx.BoxSizer(wx.VERTICAL)
+        r_sizer.Add(trackGrid, 1, wx.EXPAND)
+        r_panel.SetSizer(r_sizer)
 
 
         # and create a sizer to manage the layout of child widgets
