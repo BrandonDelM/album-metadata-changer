@@ -1,12 +1,14 @@
 import os
 import wx
 import math
+import pyperclip
 import wx.grid as gridlib
 from tinytag import TinyTag
 
 #Each file should be made into some sort of clickable item that has information on the file directory for reference
 #This can be used to edit the file on bulk or as singular file
 #And can be used to export the data into music databases as a tracklist.
+
 
 class DropTarget(wx.FileDropTarget):
     def __init__(self, obj, file_text, track_grid):
@@ -54,30 +56,11 @@ class HelloFrame(wx.Frame):
         # ensure the parent's __init__ is called
         super(HelloFrame, self).__init__(*args, **kw)
 
-        # create a panel in the frame
-        # pnl = wx.Panel(self)
+        # Left Panel
 
         l_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
-
         l_panel_top = wx.Panel(l_panel, -1, style=wx.SUNKEN_BORDER)
         l_panel_bottom = wx.Panel(l_panel, -1, style=wx.SUNKEN_BORDER)
-
-        r_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
-
-        l_panel_top.SetBackgroundColour("LIGHT GREY")
-        l_panel_bottom.SetBackgroundColour("GREY")
-        r_panel.SetBackgroundColour("WHITE")
-
-        #Right form
-        trackGrid = gridlib.Grid(r_panel)
-        trackGrid.CreateGrid(numRows=0, numCols=4)
-        trackGrid.SetDefaultCellAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
-        trackGrid.SetColLabelValue(0, "#")
-        trackGrid.SetColLabelValue(1, "Artist")
-        trackGrid.SetColLabelValue(2, "Track Title")
-        trackGrid.SetColLabelValue(3, "Duration")
-        trackGrid.AutoSize()
-        trackGrid.InsertRows()
 
         drop_text = wx.StaticText(l_panel_top, label="Drop Files Here")
         style = drop_text.GetFont()
@@ -91,21 +74,43 @@ class HelloFrame(wx.Frame):
         file_text_style.PointSize += 2
         file_text.SetFont(file_text_style)
 
+        #Right panel
+
+        r_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
+        r_panel_top = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
+        r_panel_bottom = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
+        
+
+        #Right grid
+        self.trackGrid = gridlib.Grid(r_panel_top)
+        self.trackGrid.CreateGrid(numRows=0, numCols=4)
+        self.trackGrid.SetDefaultCellAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
+        self.trackGrid.SetColLabelValue(0, "#")
+        self.trackGrid.SetColLabelValue(1, "Artist")
+        self.trackGrid.SetColLabelValue(2, "Track Title")
+        self.trackGrid.SetColLabelValue(3, "Duration")
+        self.trackGrid.InsertRows()
+
+        #Right panel grid settings
+        #Export
+        self.export_button = wx.Button(r_panel_bottom, -1, 'Export Tracklist')
+        self.export_button.Bind(wx.EVT_BUTTON, self.export_button_click)
+
+        #Styling
+
+        l_panel_top.SetBackgroundColour("LIGHT GREY")
+        l_panel_bottom.SetBackgroundColour("GREY")
+        r_panel.SetBackgroundColour("WHITE")
+
         text_sizer = wx.BoxSizer(wx.VERTICAL)
         text_sizer.AddStretchSpacer(1)
         text_sizer.Add(drop_text, 1, wx.ALIGN_CENTER_HORIZONTAL)
         text_sizer.AddStretchSpacer(1)
         l_panel_top.SetSizer(text_sizer)
 
-        self.file_drop = DropTarget(l_panel_top, file_text, trackGrid)
+        #File drop
+        self.file_drop = DropTarget(l_panel_top, file_text, self.trackGrid)
         l_panel_top.SetDropTarget(self.file_drop)
-
-        # put some text with a larger bold font on it
-        # st = wx.StaticText(pnl, label="Hello World!")
-        # font = st.GetFont()
-        # font.PointSize += 10
-        # font = font.Bold()
-        # st.SetFont(font)
 
         l_sizer = wx.BoxSizer(wx.VERTICAL)
         l_sizer.Add(l_panel_top, 1, wx.EXPAND)
@@ -113,9 +118,9 @@ class HelloFrame(wx.Frame):
         l_panel.SetSizer(l_sizer)
 
         r_sizer = wx.BoxSizer(wx.VERTICAL)
-        r_sizer.Add(trackGrid, 1, wx.EXPAND)
+        r_sizer.Add(r_panel_top, 2, wx.EXPAND)
+        r_sizer.Add(r_panel_bottom, 1, wx.EXPAND)
         r_panel.SetSizer(r_sizer)
-
 
         # and create a sizer to manage the layout of child widgets
         sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -131,6 +136,12 @@ class HelloFrame(wx.Frame):
         # create a menu bar
         self.makeMenuBar()
 
+    def export_button_click(self, event):
+        rows: int = self.trackGrid.GetNumberRows()
+        tracklist: str = ""
+        for row in range(rows):
+            tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 1)} - {self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
+        pyperclip.copy(tracklist)
 
     def makeMenuBar(self):
         """
