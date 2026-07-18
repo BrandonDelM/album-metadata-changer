@@ -25,22 +25,30 @@ class DropTarget(wx.FileDropTarget):
                 contents = os.listdir(path)
                 self.track_grid.InsertRows(pos=0, numRows=len(contents))
                 row_i: int = 0 #Files in the folder aren't always going to be audio files...
-                for item in contents:
-                    if TinyTag.is_supported(os.path.join(path, item)): #If the file is a genuine audio file which can be parsed
-                        tag: TinyTag = TinyTag.get(os.path.join(path, item))
-                        artist_name = tag.artist or ""
-                        track_title = tag.title or ""
-                        duration = math.ceil(tag.duration)
-                        duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
+                tags: list[TinyTag] = [TinyTag.get(os.path.join(path, item)) for item in contents if TinyTag.is_supported(os.path.join(path, item))]
+                
+                multi_disc: bool = False
+                if len(set([tag.disc for tag in tags])) > 1:
+                    multi_disc = True
 
-                        print(artist_name, track_title, duration)
+                for tag in tags:
+                    if tag.track == None:
+                        print(f"row_i is given to file # {row_i}.")
+                    disc = f"{tag.disc}." if multi_disc else "" 
+                    track_no = tag.track or row_i
+                    artist_name = tag.artist or ""
+                    track_title = tag.title or ""
+                    duration = math.ceil(tag.duration)
+                    duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
 
-                        self.track_grid.SetCellValue(row_i, 0, str(row_i+1))
-                        self.track_grid.SetCellValue(row_i, 1, str(artist_name))
-                        self.track_grid.SetCellValue(row_i, 2, str(track_title))
-                        self.track_grid.SetCellValue(row_i, 3, str(duration))
+                    print(artist_name, track_title, duration)
 
-                        row_i += 1 
+                    self.track_grid.SetCellValue(track_no-1, 0, f"{disc}{track_no}")
+                    self.track_grid.SetCellValue(track_no-1, 1, str(artist_name))
+                    self.track_grid.SetCellValue(track_no-1, 2, str(track_title))
+                    self.track_grid.SetCellValue(track_no-1, 3, str(duration))
+
+                    row_i += 1 
                 
                 if row_i < len(contents):
                     self.track_grid.DeleteRows(row_i, len(contents) - row_i)
@@ -52,6 +60,7 @@ class DropTarget(wx.FileDropTarget):
         return True
 
 class HelloFrame(wx.Frame):
+
     def __init__(self, *args, **kw):
         # ensure the parent's __init__ is called
         super(HelloFrame, self).__init__(*args, **kw)
@@ -92,6 +101,9 @@ class HelloFrame(wx.Frame):
         self.trackGrid.InsertRows()
 
         #Right panel grid settings
+        #Artist Name
+        self.enable_artist = wx.CheckBox(r_panel_bottom, -1, 'Add Artists To Tracklist')
+
         #Export
         self.export_button = wx.Button(r_panel_bottom, -1, 'Export Tracklist')
         self.export_button.Bind(wx.EVT_BUTTON, self.export_button_click)
@@ -117,6 +129,12 @@ class HelloFrame(wx.Frame):
         l_sizer.Add(l_panel_bottom, 3, wx.EXPAND)
         l_panel.SetSizer(l_sizer)
 
+        #r_sizer_bottom
+        r_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
+        r_sizer_bottom.Add(self.enable_artist, 0, wx.EXPAND)
+        r_sizer_bottom.Add(self.export_button, 0, wx.EXPAND)
+        r_panel_bottom.SetSizer(r_sizer_bottom)
+
         r_sizer = wx.BoxSizer(wx.VERTICAL)
         r_sizer.Add(r_panel_top, 2, wx.EXPAND)
         r_sizer.Add(r_panel_bottom, 1, wx.EXPAND)
@@ -139,8 +157,12 @@ class HelloFrame(wx.Frame):
     def export_button_click(self, event):
         rows: int = self.trackGrid.GetNumberRows()
         tracklist: str = ""
-        for row in range(rows):
-            tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 1)} - {self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
+        if self.enable_artist.IsChecked():
+            for row in range(rows):
+                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 1)} - {self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
+        else:
+            for row in range(rows):
+                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
         pyperclip.copy(tracklist)
 
     def makeMenuBar(self):
@@ -206,6 +228,6 @@ if __name__ == '__main__':
     # When this module is run (not imported) then create the app, the
     # frame, show it, and start the event loop.
     app = wx.App()
-    frm = HelloFrame(None, title='Hello World 2')
+    frm = HelloFrame(None, title='Album Tracklist Exporter')
     frm.Show()
     app.MainLoop()
