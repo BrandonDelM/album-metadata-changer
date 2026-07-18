@@ -24,31 +24,55 @@ class DropTarget(wx.FileDropTarget):
             if os.path.isdir(path):
                 contents = os.listdir(path)
                 self.track_grid.InsertRows(pos=0, numRows=len(contents))
-                row_i: int = 0 #Files in the folder aren't always going to be audio files...
-                tags: list[TinyTag] = [TinyTag.get(os.path.join(path, item)) for item in contents if TinyTag.is_supported(os.path.join(path, item))]
                 
-                multi_disc: bool = False
-                if len(set([tag.disc for tag in tags])) > 1:
-                    multi_disc = True
+                tags: list[TinyTag] = [TinyTag.get(os.path.join(path, item)) for item in contents if TinyTag.is_supported(os.path.join(path, item))]
+                disc_count: int = max([tag.disc or 1 for tag in tags]) #Get number of discs
+                multi_disc: bool = True if disc_count > 1 else False #Checks if there are multiple discs
+                discs: list[list[TinyTag]] = [sorted((tag for tag in tags if (tag.disc or 1) == disc_no), key=lambda tag: tag.track or float("inf")) for disc_no in range(1, disc_count+1)] #Separate tracks into discs
+                
+                row_i: int = 0 #Files in the folder aren't always going to be audio files..
+                for disc_no, disc in enumerate(discs):
+                    disc_prefix = f"{disc_no+1}." if multi_disc else "" 
+                    for tag in disc:
+                        track_no = tag.track or row_i
+                        if tag.track == None:
+                            print(f"row_i is given to file # {row_i}.")
+                        artist_name = tag.artist or ""
+                        track_title = tag.title or ""
+                        duration = math.ceil(tag.duration)
+                        duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
 
-                for tag in tags:
-                    if tag.track == None:
-                        print(f"row_i is given to file # {row_i}.")
-                    disc = f"{tag.disc}." if multi_disc else "" 
-                    track_no = tag.track or row_i
-                    artist_name = tag.artist or ""
-                    track_title = tag.title or ""
-                    duration = math.ceil(tag.duration)
-                    duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
+                        print(artist_name, track_title, duration)
 
-                    print(artist_name, track_title, duration)
+                        # self.track_grid.SetCellValue(row_next+track_no-1, 0, f"{disc_prefix}{track_no}")
+                        # self.track_grid.SetCellValue(row_next+track_no-1, 1, str(artist_name))
+                        # self.track_grid.SetCellValue(row_next+track_no-1, 2, str(track_title))
+                        # self.track_grid.SetCellValue(row_next+track_no-1, 3, str(duration))
+                        self.track_grid.SetCellValue(row_i, 0, f"{disc_prefix}{track_no}")
+                        self.track_grid.SetCellValue(row_i, 1, str(artist_name))
+                        self.track_grid.SetCellValue(row_i, 2, str(track_title))
+                        self.track_grid.SetCellValue(row_i, 3, str(duration))
 
-                    self.track_grid.SetCellValue(track_no-1, 0, f"{disc}{track_no}")
-                    self.track_grid.SetCellValue(track_no-1, 1, str(artist_name))
-                    self.track_grid.SetCellValue(track_no-1, 2, str(track_title))
-                    self.track_grid.SetCellValue(track_no-1, 3, str(duration))
+                        row_i += 1
 
-                    row_i += 1 
+                # for tag in tags:
+                #     if tag.track == None:
+                #         print(f"row_i is given to file # {row_i}.")
+                #     disc = f"{tag.disc}." if multi_disc else "" 
+                #     track_no = tag.track or row_i
+                #     artist_name = tag.artist or ""
+                #     track_title = tag.title or ""
+                #     duration = math.ceil(tag.duration)
+                #     duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
+
+                #     print(artist_name, track_title, duration)
+
+                #     self.track_grid.SetCellValue(track_no-1, 0, f"{disc}{track_no}")
+                #     self.track_grid.SetCellValue(track_no-1, 1, str(artist_name))
+                #     self.track_grid.SetCellValue(track_no-1, 2, str(track_title))
+                #     self.track_grid.SetCellValue(track_no-1, 3, str(duration))
+
+                #     row_i += 1 
                 
                 if row_i < len(contents):
                     self.track_grid.DeleteRows(row_i, len(contents) - row_i)
