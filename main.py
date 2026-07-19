@@ -4,11 +4,13 @@ import math
 import pyperclip
 import wx.grid as gridlib
 from tinytag import TinyTag
+import unicodedata
 
 #Each file should be made into some sort of clickable item that has information on the file directory for reference
 #This can be used to edit the file on bulk or as singular file
 #And can be used to export the data into music databases as a tracklist.
 
+front_cover: bytes | None = None
 
 class DropTarget(wx.FileDropTarget):
     def __init__(self, obj, file_text, track_grid):
@@ -18,6 +20,7 @@ class DropTarget(wx.FileDropTarget):
         self.track_grid: gridlib.Grid = track_grid
 
     def OnDropFiles(self, x, y, filenames):
+        global front_cover
         if self.track_grid.GetNumberRows() > 0:
             self.track_grid.DeleteRows(0, self.track_grid.GetNumberRows())
         for path in filenames:
@@ -25,7 +28,10 @@ class DropTarget(wx.FileDropTarget):
                 contents = os.listdir(path)
                 self.track_grid.InsertRows(pos=0, numRows=len(contents))
                 
-                tags: list[TinyTag] = [TinyTag.get(os.path.join(path, item)) for item in contents if TinyTag.is_supported(os.path.join(path, item))]
+                tags: list[TinyTag] = [TinyTag.get(os.path.join(path, item),image=True) for item in contents if TinyTag.is_supported(os.path.join(path, item))]
+                front_cover = tags[0].images.any.data
+                if len(tags) <= 0:
+                    return False
                 disc_count: int = max([tag.disc or 1 for tag in tags]) #Get number of discs
                 multi_disc: bool = True if disc_count > 1 else False #Checks if there are multiple discs
                 discs: list[list[TinyTag]] = [sorted((tag for tag in tags if (tag.disc or 1) == disc_no), key=lambda tag: tag.track or float("inf")) for disc_no in range(1, disc_count+1)] #Separate tracks into discs
@@ -44,41 +50,17 @@ class DropTarget(wx.FileDropTarget):
 
                         print(artist_name, track_title, duration)
 
-                        # self.track_grid.SetCellValue(row_next+track_no-1, 0, f"{disc_prefix}{track_no}")
-                        # self.track_grid.SetCellValue(row_next+track_no-1, 1, str(artist_name))
-                        # self.track_grid.SetCellValue(row_next+track_no-1, 2, str(track_title))
-                        # self.track_grid.SetCellValue(row_next+track_no-1, 3, str(duration))
                         self.track_grid.SetCellValue(row_i, 0, f"{disc_prefix}{track_no}")
                         self.track_grid.SetCellValue(row_i, 1, str(artist_name))
                         self.track_grid.SetCellValue(row_i, 2, str(track_title))
                         self.track_grid.SetCellValue(row_i, 3, str(duration))
 
                         row_i += 1
-
-                # for tag in tags:
-                #     if tag.track == None:
-                #         print(f"row_i is given to file # {row_i}.")
-                #     disc = f"{tag.disc}." if multi_disc else "" 
-                #     track_no = tag.track or row_i
-                #     artist_name = tag.artist or ""
-                #     track_title = tag.title or ""
-                #     duration = math.ceil(tag.duration)
-                #     duration = f"{int(duration // 60)}:{int(duration % 60):02d}"
-
-                #     print(artist_name, track_title, duration)
-
-                #     self.track_grid.SetCellValue(track_no-1, 0, f"{disc}{track_no}")
-                #     self.track_grid.SetCellValue(track_no-1, 1, str(artist_name))
-                #     self.track_grid.SetCellValue(track_no-1, 2, str(track_title))
-                #     self.track_grid.SetCellValue(track_no-1, 3, str(duration))
-
-                #     row_i += 1 
                 
                 if row_i < len(contents):
                     self.track_grid.DeleteRows(row_i, len(contents) - row_i)
             else:
-                name = path[path.rfind("/")+1:path.rfind(".")]
-                self.file_text.SetLabel(f"{self.file_text.GetLabel()}\n{name}")
+                print("Wip")
         self.track_grid.ForceRefresh()
         self.track_grid.AutoSize()
         return True
@@ -128,6 +110,13 @@ class HelloFrame(wx.Frame):
         #Artist Name
         self.enable_artist = wx.CheckBox(r_panel_bottom, -1, 'Add Artists To Tracklist')
 
+        #Normalize Unicode
+        self.normalize_unicode = wx.CheckBox(r_panel_bottom, -1, 'Normalize Unicode')
+
+        #Download Cover
+        self.dl_cover_button = wx.Button(r_panel_bottom, -1, "Download Cover")
+        self.dl_cover_button.Bind(wx.EVT_BUTTON, self.dl_cover_button_click)
+
         #Export
         self.export_button = wx.Button(r_panel_bottom, -1, 'Export Tracklist')
         self.export_button.Bind(wx.EVT_BUTTON, self.export_button_click)
@@ -156,6 +145,8 @@ class HelloFrame(wx.Frame):
         #r_sizer_bottom
         r_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
         r_sizer_bottom.Add(self.enable_artist, 0, wx.EXPAND)
+        r_sizer_bottom.Add(self.normalize_unicode, 0, wx.EXPAND)
+        r_sizer_bottom.Add(self.dl_cover_button, 0, wx.EXPAND)
         r_sizer_bottom.Add(self.export_button, 0, wx.EXPAND)
         r_panel_bottom.SetSizer(r_sizer_bottom)
 
@@ -181,13 +172,26 @@ class HelloFrame(wx.Frame):
     def export_button_click(self, event):
         rows: int = self.trackGrid.GetNumberRows()
         tracklist: str = ""
-        if self.enable_artist.IsChecked():
+        if self.enable_artist.IsChecked(): #Artist not enabled
             for row in range(rows):
-                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 1)} - {self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
-        else:
+                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 1)} - {unicodedata.normalize('NFKC', self.trackGrid.GetCellValue(row, 2)) if self.normalize_unicode.IsChecked() else self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
+        else: #Artist enabled
             for row in range(rows):
-                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
+                tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{unicodedata.normalize('NFKC', self.trackGrid.GetCellValue(row, 2)) if self.normalize_unicode.IsChecked() else self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
         pyperclip.copy(tracklist)
+
+    def dl_cover_button_click(self, event):
+        if front_cover:
+            try:
+                downloads = os.path.join(os.path.expanduser("~"), "Downloads")
+                with open(os.path.join(downloads, 'cover.png'), 'wb') as img_file:
+                    img_file.write(front_cover)
+                wx.MessageBox("Image successfully downloaded to Downloads folder", "Success", wx.OK)
+            except Exception as e:
+                wx.MessageBox(f"Error while trying to download image: {e}", "Downloading Error", wx.ICON_ERROR)
+        else:
+            wx.MessageBox("No cover could be found for this release", "Error", wx.ICON_ERROR)
+            print("No image to download")
 
     def makeMenuBar(self):
         """
