@@ -162,8 +162,9 @@ class HelloFrame(wx.Frame):
         # sizer.Add(st, wx.SizerFlags().Border(wx.TOP|wx.LEFT, 25))
 
         
-        self.SetSize((600, 400))
+        self.SetSize((600, 600))
         self.SetSizer(sizer)
+        # self.SetSizerAndFit(sizer)
         self.Layout()
 
         # create a menu bar
