@@ -106,16 +106,31 @@ class HelloFrame(wx.Frame):
         self.trackGrid.SetColLabelValue(3, "Duration")
         self.trackGrid.InsertRows()
 
+        #Preview Button
+        self.preview_button = wx.Button(r_panel_top, -1, "Preview")
+        self.preview_button.Bind(wx.EVT_BUTTON, self.preview_button_click)
+
+        #Preview Grid
+        self.previewGrid = gridlib.Grid(r_panel_top)
+        self.previewGrid.CreateGrid(numRows=0, numCols=3)
+        self.previewGrid.SetDefaultCellAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
+        self.previewGrid.SetColLabelValue(0, "#")
+        self.previewGrid.SetColLabelValue(1, "Track Name")
+        self.previewGrid.SetColLabelValue(2, "Time")
+        self.previewGrid.InsertRows()
+
         #Right panel grid settings
         #Artist Name
         self.enable_artist = wx.CheckBox(r_panel_bottom, -1, 'Add Artists To Tracklist')
 
         #Normalize Unicode
         self.normalize_unicode = wx.CheckBox(r_panel_bottom, -1, 'Normalize Unicode')
+        self.normalize_unicode.SetOwnForegroundColour(wx.BLACK)
 
         #Download Cover
         self.dl_cover_button = wx.Button(r_panel_bottom, -1, "Download Cover")
         self.dl_cover_button.Bind(wx.EVT_BUTTON, self.dl_cover_button_click)
+        self.dl_cover_button.SetOwnForegroundColour(wx.BLACK)
 
         #Export
         self.export_button = wx.Button(r_panel_bottom, -1, 'Export Tracklist')
@@ -125,7 +140,9 @@ class HelloFrame(wx.Frame):
 
         l_panel_top.SetBackgroundColour("LIGHT GREY")
         l_panel_bottom.SetBackgroundColour("GREY")
-        r_panel.SetBackgroundColour("WHITE")
+        # r_panel.SetBackgroundColour("WHITE")
+        # r_panel_top.SetBackgroundColour("WHITE")
+        # r_panel_bottom.SetBackgroundColour("LIGHT GREY")
 
         text_sizer = wx.BoxSizer(wx.VERTICAL)
         text_sizer.AddStretchSpacer(1)
@@ -141,6 +158,13 @@ class HelloFrame(wx.Frame):
         l_sizer.Add(l_panel_top, 1, wx.EXPAND)
         l_sizer.Add(l_panel_bottom, 3, wx.EXPAND)
         l_panel.SetSizer(l_sizer)
+
+        #r_sizer_top
+        r_sizer_top = wx.BoxSizer(wx.VERTICAL)
+        r_sizer_top.Add(self.trackGrid, 0, wx.EXPAND)
+        r_sizer_top.Add(self.preview_button, 0, wx.CENTER)
+        r_sizer_top.Add(self.previewGrid, 0, wx.EXPAND)
+        r_panel_top.SetSizer(r_sizer_top)
 
         #r_sizer_bottom
         r_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
@@ -166,6 +190,7 @@ class HelloFrame(wx.Frame):
         self.SetSizer(sizer)
         # self.SetSizerAndFit(sizer)
         self.Layout()
+        self.Refresh()
 
         # create a menu bar
         self.makeMenuBar()
@@ -180,6 +205,27 @@ class HelloFrame(wx.Frame):
             for row in range(rows):
                 tracklist += f"{self.trackGrid.GetCellValue(row, 0)}|{unicodedata.normalize('NFKC', self.trackGrid.GetCellValue(row, 2)) if self.normalize_unicode.IsChecked() else self.trackGrid.GetCellValue(row, 2)}|{self.trackGrid.GetCellValue(row, 3)}\n"
         pyperclip.copy(tracklist)
+    
+    def preview_button_click(self, event):
+        rows: int = self.trackGrid.GetNumberRows()
+        if rows <= 0:
+            wx.MessageBox("No tracklist to export (Tracklist is blank)", "Error", wx.ICON_ERROR)
+            return False
+        if self.previewGrid.GetNumberRows() > 0:
+            self.previewGrid.DeleteRows(0, self.trackGrid.GetNumberRows())
+        self.previewGrid.InsertRows(pos=0, numRows=rows)
+        for row in range(rows):
+            track_no = self.trackGrid.GetCellValue(row, 0)
+            artist_name = f"{self.trackGrid.GetCellValue(row, 1)} - " if self.enable_artist.IsChecked() else ''
+            track_title = unicodedata.normalize('NFKC', self.trackGrid.GetCellValue(row, 2)) if self.normalize_unicode.IsChecked() else self.trackGrid.GetCellValue(row, 2)
+            duration = self.trackGrid.GetCellValue(row, 3)
+            # print(f"Run {row}")
+            self.previewGrid.SetCellValue(row, 0, f"{track_no}")
+            self.previewGrid.SetCellValue(row, 1, f"{artist_name}{track_title}")
+            self.previewGrid.SetCellValue(row, 2, str(duration))
+        self.previewGrid.Refresh()
+        self.previewGrid.AutoSize()
+        return True
 
     def dl_cover_button_click(self, event):
         if front_cover:
@@ -193,6 +239,7 @@ class HelloFrame(wx.Frame):
         else:
             wx.MessageBox("No cover could be found for this release", "Error", wx.ICON_ERROR)
             print("No image to download")
+    
 
     def makeMenuBar(self):
         """
