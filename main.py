@@ -3,7 +3,7 @@ import wx
 import math
 import pyperclip
 import wx.grid as gridlib
-from tinytag import TinyTag
+from tinytag import OtherFields, TinyTag
 import unicodedata
 
 #Each file should be made into some sort of clickable item that has information on the file directory for reference
@@ -13,12 +13,12 @@ import unicodedata
 front_cover: bytes | None = None
 
 class DropTarget(wx.FileDropTarget):
-    def __init__(self, obj, file_text, track_grid, top_panel):
+    def __init__(self, obj, track_grid, top_panel, info_grid):
         wx.FileDropTarget.__init__(self)
         self.obj = obj
-        self.file_text: wx.StaticText = file_text
         self.track_grid: gridlib.Grid = track_grid
         self.top_panel: wx.Panel = top_panel
+        self.info_grid: gridlib.Grid = info_grid
 
     def OnDropFiles(self, x, y, filenames):
         global front_cover
@@ -60,10 +60,49 @@ class DropTarget(wx.FileDropTarget):
                 
                 if row_i < len(contents):
                     self.track_grid.DeleteRows(row_i, len(contents) - row_i)
+                self.get_credits(discs, multi_disc)
             else:
-                print("Wip")
+                print("WIP")
         self.track_grid.ForceRefresh()
         self.track_grid.AutoSize()
+        self.top_panel.Layout()
+        return True
+    
+    def get_credits(self, discs: list[list[TinyTag]], multi_disc: bool):
+        if self.info_grid.GetNumberRows() > 0:
+            self.info_grid.DeleteRows(0, self.info_grid.GetNumberRows())
+        tracks: int = sum(len(disc) for disc in discs)
+        self.info_grid.InsertRows(0, tracks)
+        row_i: int = 0
+        for disc_no, disc in enumerate(discs):
+            disc_prefix = f"{disc_no+1}." if multi_disc else "" 
+            for tag in disc:
+                track_no = tag.track or row_i
+                comment = tag.comment
+                composer = tag.composer
+                other_fields: OtherFields = tag.other
+                catalog_no = other_fields.get("catalog_number")
+                copyright = other_fields.get("copyright")
+                lyricist = other_fields.get("lyricist")
+                lyrics = other_fields.get("lyrics")
+                publisher = other_fields.get("publisher")
+                url = other_fields.get("url")
+                if comment or composer or catalog_no or copyright or lyricist or lyrics or publisher or url:
+                    self.info_grid.SetCellValue(row_i, 0, f"{disc_prefix}{track_no}")
+                    self.info_grid.SetCellValue(row_i, 1, str(comment or ""))
+                    self.info_grid.SetCellValue(row_i, 2, str(composer or ""))
+                    self.info_grid.SetCellValue(row_i, 3, str(catalog_no or ""))
+                    self.info_grid.SetCellValue(row_i, 4, str(copyright or ""))
+                    self.info_grid.SetCellValue(row_i, 5, str(lyricist or ""))
+                    self.info_grid.SetCellValue(row_i, 6, str(lyrics or ""))
+                    self.info_grid.SetCellValue(row_i, 7, str(publisher or ""))
+                    self.info_grid.SetCellValue(row_i, 8, str(url or ""))
+                    row_i += 1
+        if row_i < tracks:
+            self.info_grid.DeleteRows(row_i, tracks - row_i)
+        self.info_grid.AutoSizeColumns() 
+        self.info_grid.AdjustScrollbars()
+        self.info_grid.ForceRefresh()
         self.top_panel.Layout()
         return True
 
@@ -79,24 +118,44 @@ class HelloFrame(wx.Frame):
         l_panel_top = wx.Panel(l_panel, -1, style=wx.SUNKEN_BORDER)
         l_panel_bottom = wx.Panel(l_panel, -1, style=wx.SUNKEN_BORDER)
 
+        #Left top
         drop_text = wx.StaticText(l_panel_top, label="Drop Files Here")
         style = drop_text.GetFont()
-        drop_text.SetForegroundColour(wx.BLACK)
+        # drop_text.SetForegroundColour(wx.BLACK)
         style.PointSize += 8
         drop_text.SetFont(style)
 
-        file_text = wx.StaticText(l_panel_bottom)
-        file_text_style = file_text.GetFont()
-        file_text.SetForegroundColour(wx.BLACK)
-        file_text_style.PointSize += 2
-        file_text.SetFont(file_text_style)
+        #Left bottom
+        info_text = wx.StaticText(l_panel_bottom)
+        info_text_style = info_text.GetFont()
+        info_text_style.PointSize += 2
+        info_text.SetFont(info_text_style)
+        info_text.SetLabelText("Info Text")
+
+        self.infoGrid = gridlib.Grid(l_panel_bottom)
+        self.infoGrid.CreateGrid(numRows=0, numCols=9)
+        self.infoGrid.SetDefaultCellAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
+        self.infoGrid.SetColLabelValue(0, "#")
+        self.infoGrid.SetColLabelValue(1, "Comment")
+        self.infoGrid.SetColLabelValue(2, "Composer")
+        self.infoGrid.SetColLabelValue(3, "Catalog #")
+        self.infoGrid.SetColLabelValue(4, "Copyright")
+        self.infoGrid.SetColLabelValue(5, "Lyricist")
+        self.infoGrid.SetColLabelValue(6, "Lyrics")
+        self.infoGrid.SetColLabelValue(7, "Publisher")
+        self.infoGrid.SetColLabelValue(8, "URL")
+
+        self.infoGrid.DisableDragColSize()
+        self.infoGrid.DisableDragRowSize()
+        self.infoGrid.DisableDragGridSize()
+        self.infoGrid.SetDefaultCellOverflow(False)
+        self.infoGrid.SetMinSize((250, 150))
 
         #Right panel
 
         r_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
         r_panel_top = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
         r_panel_bottom = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
-
 
         #Right grid
         self.trackGrid = gridlib.Grid(r_panel_top)
@@ -140,8 +199,8 @@ class HelloFrame(wx.Frame):
 
         #Styling
 
-        l_panel_top.SetBackgroundColour("LIGHT GREY")
-        l_panel_bottom.SetBackgroundColour("GREY")
+        # l_panel_top.SetBackgroundColour("BLACK")
+        # l_panel_bottom.SetBackgroundColour("GREY")
         # r_panel.SetBackgroundColour("WHITE")
         # r_panel_top.SetBackgroundColour("WHITE")
         # r_panel_bottom.SetBackgroundColour("LIGHT GREY")
@@ -153,13 +212,19 @@ class HelloFrame(wx.Frame):
         l_panel_top.SetSizer(text_sizer)
 
         #File drop
-        self.file_drop = DropTarget(l_panel_top, file_text, self.trackGrid, r_panel_top)
+        self.file_drop = DropTarget(l_panel_top, self.trackGrid, r_panel_top, self.infoGrid)
         l_panel_top.SetDropTarget(self.file_drop)
 
         l_sizer = wx.BoxSizer(wx.VERTICAL)
         l_sizer.Add(l_panel_top, 1, wx.EXPAND)
-        l_sizer.Add(l_panel_bottom, 3, wx.EXPAND)
+        l_sizer.Add(l_panel_bottom, 4, wx.EXPAND)
         l_panel.SetSizer(l_sizer)
+
+        #l_sizer_bottom
+        l_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
+        l_sizer_bottom.Add(info_text, 0, wx.CENTER)
+        l_sizer_bottom.Add(self.infoGrid, 1, wx.EXPAND | wx.ALL, border=2)
+        l_panel_bottom.SetSizer(l_sizer_bottom)
 
         #r_sizer_top
         r_sizer_top = wx.BoxSizer(wx.VERTICAL)
