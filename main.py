@@ -13,11 +13,12 @@ import unicodedata
 front_cover: bytes | None = None
 
 class DropTarget(wx.FileDropTarget):
-    def __init__(self, obj, file_text, track_grid):
+    def __init__(self, obj, file_text, track_grid, top_panel):
         wx.FileDropTarget.__init__(self)
         self.obj = obj
         self.file_text: wx.StaticText = file_text
         self.track_grid: gridlib.Grid = track_grid
+        self.top_panel: wx.Panel = top_panel
 
     def OnDropFiles(self, x, y, filenames):
         global front_cover
@@ -63,6 +64,7 @@ class DropTarget(wx.FileDropTarget):
                 print("Wip")
         self.track_grid.ForceRefresh()
         self.track_grid.AutoSize()
+        self.top_panel.Layout()
         return True
 
 class HelloFrame(wx.Frame):
@@ -94,7 +96,7 @@ class HelloFrame(wx.Frame):
         r_panel = wx.Panel(self,-1, style=wx.SUNKEN_BORDER)
         r_panel_top = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
         r_panel_bottom = wx.Panel(r_panel, -1, style=wx.SUNKEN_BORDER)
-        
+
 
         #Right grid
         self.trackGrid = gridlib.Grid(r_panel_top)
@@ -151,7 +153,7 @@ class HelloFrame(wx.Frame):
         l_panel_top.SetSizer(text_sizer)
 
         #File drop
-        self.file_drop = DropTarget(l_panel_top, file_text, self.trackGrid)
+        self.file_drop = DropTarget(l_panel_top, file_text, self.trackGrid, r_panel_top)
         l_panel_top.SetDropTarget(self.file_drop)
 
         l_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -161,17 +163,17 @@ class HelloFrame(wx.Frame):
 
         #r_sizer_top
         r_sizer_top = wx.BoxSizer(wx.VERTICAL)
-        r_sizer_top.Add(self.trackGrid, 0, wx.EXPAND)
-        r_sizer_top.Add(self.preview_button, 0, wx.CENTER)
-        r_sizer_top.Add(self.previewGrid, 0, wx.EXPAND)
+        r_sizer_top.Add(self.trackGrid, 1, wx.EXPAND)
+        r_sizer_top.Add(self.preview_button, 0, wx.ALL | wx.CENTER, border=5)
+        r_sizer_top.Add(self.previewGrid, 1, wx.EXPAND)
         r_panel_top.SetSizer(r_sizer_top)
 
         #r_sizer_bottom
         r_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
-        r_sizer_bottom.Add(self.enable_artist, 0, wx.EXPAND)
-        r_sizer_bottom.Add(self.normalize_unicode, 0, wx.EXPAND)
-        r_sizer_bottom.Add(self.dl_cover_button, 0, wx.EXPAND)
-        r_sizer_bottom.Add(self.export_button, 0, wx.EXPAND)
+        r_sizer_bottom.Add(self.enable_artist, 0, wx.ALL | wx.ALIGN_LEFT, border=2)
+        r_sizer_bottom.Add(self.normalize_unicode, 0, wx.ALL | wx.ALIGN_LEFT, border=2)
+        r_sizer_bottom.Add(self.dl_cover_button, 0, wx.ALL | wx.EXPAND, border=2)
+        r_sizer_bottom.Add(self.export_button, 0, wx.ALL | wx.EXPAND, border=2)
         r_panel_bottom.SetSizer(r_sizer_bottom)
 
         r_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -186,7 +188,8 @@ class HelloFrame(wx.Frame):
         # sizer.Add(st, wx.SizerFlags().Border(wx.TOP|wx.LEFT, 25))
 
         
-        self.SetSize((600, 600))
+        self.SetSize((900, 900))
+        self.Center()
         self.SetSizer(sizer)
         # self.SetSizerAndFit(sizer)
         self.Layout()
@@ -223,8 +226,8 @@ class HelloFrame(wx.Frame):
             self.previewGrid.SetCellValue(row, 0, f"{track_no}")
             self.previewGrid.SetCellValue(row, 1, f"{artist_name}{track_title}")
             self.previewGrid.SetCellValue(row, 2, str(duration))
-        self.previewGrid.Refresh()
         self.previewGrid.AutoSize()
+        self.previewGrid.ForceRefresh()
         return True
 
     def dl_cover_button_click(self, event):
