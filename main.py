@@ -188,6 +188,10 @@ class HelloFrame(wx.Frame):
         self.normalize_unicode = wx.CheckBox(r_panel_bottom, -1, 'Normalize Unicode')
         self.normalize_unicode.SetOwnForegroundColour(wx.BLACK)
 
+        #Title Case
+        self.title_case = wx.CheckBox(r_panel_bottom, -1, "Title Case")
+        self.normalize_unicode.SetOwnForegroundColour(wx.BLACK)
+
         #Download Cover
         self.dl_cover_button = wx.Button(r_panel_bottom, -1, "Download Cover")
         self.dl_cover_button.Bind(wx.EVT_BUTTON, self.dl_cover_button_click)
@@ -237,6 +241,7 @@ class HelloFrame(wx.Frame):
         r_sizer_bottom = wx.BoxSizer(wx.VERTICAL)
         r_sizer_bottom.Add(self.enable_artist, 0, wx.ALL | wx.ALIGN_LEFT, border=2)
         r_sizer_bottom.Add(self.normalize_unicode, 0, wx.ALL | wx.ALIGN_LEFT, border=2)
+        r_sizer_bottom.Add(self.title_case, 0, wx.ALL | wx.ALIGN_LEFT, border=2)
         r_sizer_bottom.Add(self.dl_cover_button, 0, wx.ALL | wx.EXPAND, border=2)
         r_sizer_bottom.Add(self.export_button, 0, wx.ALL | wx.EXPAND, border=2)
         r_panel_bottom.SetSizer(r_sizer_bottom)
@@ -287,7 +292,9 @@ class HelloFrame(wx.Frame):
             artist_name = f"{self.trackGrid.GetCellValue(row, 1)} - " if self.enable_artist.IsChecked() else ''
             track_title = unicodedata.normalize('NFKC', self.trackGrid.GetCellValue(row, 2)) if self.normalize_unicode.IsChecked() else self.trackGrid.GetCellValue(row, 2)
             duration = self.trackGrid.GetCellValue(row, 3)
-            # print(f"Run {row}")
+            if self.title_case.IsChecked():
+                track_title = track_title.title()
+            
             self.previewGrid.SetCellValue(row, 0, f"{track_no}")
             self.previewGrid.SetCellValue(row, 1, f"{artist_name}{track_title}")
             self.previewGrid.SetCellValue(row, 2, str(duration))
@@ -308,6 +315,8 @@ class HelloFrame(wx.Frame):
             wx.MessageBox("No cover could be found for this release", "Error", wx.ICON_ERROR)
             print("No image to download")
     
+    def track_capitalization(self):
+        pass
 
     def makeMenuBar(self):
         """
